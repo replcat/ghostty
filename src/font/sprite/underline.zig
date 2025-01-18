@@ -30,7 +30,7 @@ pub fn renderGlyph(
     // Draw the appropriate sprite
     var canvas: font.sprite.Canvas, const offset_y: i32 = switch (sprite) {
         .underline => try drawSingle(alloc, width, line_thickness),
-        .underline_double => try drawDouble(alloc, width, line_thickness),
+        .underline_double => try drawDouble(alloc, width, height, line_thickness),
         .underline_dotted => try drawDotted(alloc, width, line_thickness),
         .underline_dashed => try drawDashed(alloc, width, line_thickness),
         .underline_curly => try drawCurly(alloc, width, line_thickness),
@@ -81,31 +81,21 @@ fn drawSingle(alloc: Allocator, width: u32, thickness: u32) !CanvasAndOffset {
 }
 
 /// Draw a double underline.
-fn drawDouble(alloc: Allocator, width: u32, thickness: u32) !CanvasAndOffset {
-    // Our gap between lines will be at least 2px.
-    // (i.e. if our thickness is 1, we still have a gap of 2)
-    const gap = @max(2, thickness);
-
-    const height: u32 = thickness * 2 * gap;
+fn drawDouble(alloc: Allocator, width: u32, height: u32, thickness: u32) !CanvasAndOffset {
     var canvas = try font.sprite.Canvas.init(alloc, width, height);
 
-    canvas.rect(.{
-        .x = 0,
-        .y = 0,
-        .width = width,
-        .height = thickness,
-    }, .on);
+    // left
+    canvas.rect(.{ .x = 0, .y = 0, .width = thickness, .height = height }, .on);
+    // right
+    canvas.rect(.{ .x = width -| thickness, .y = 0, .width = thickness, .height = height }, .on);
+    // top
+    canvas.rect(.{ .x = 0, .y = 0, .width = width, .height = thickness }, .on);
+    // bottom
+    canvas.rect(.{ .x = 0, .y = height -| thickness, .width = width, .height = thickness }, .on);
 
-    canvas.rect(.{
-        .x = 0,
-        .y = thickness * 2,
-        .width = width,
-        .height = thickness,
-    }, .on);
+    const offset_y: i32 = @intCast(height - thickness);
 
-    const offset_y: i32 = -@as(i32, @intCast(thickness));
-
-    return .{ canvas, offset_y };
+    return .{ canvas, -offset_y };
 }
 
 /// Draw a dotted underline.
@@ -113,21 +103,22 @@ fn drawDotted(alloc: Allocator, width: u32, thickness: u32) !CanvasAndOffset {
     const height: u32 = thickness;
     var canvas = try font.sprite.Canvas.init(alloc, width, height);
 
-    const dot_width = @max(thickness, 3);
-    const dot_count = @max((width / dot_width) / 2, 1);
-    const gap_width = try std.math.divCeil(u32, width -| (dot_count * dot_width), dot_count);
-    var i: u32 = 0;
-    while (i < dot_count) : (i += 1) {
-        // Ensure we never go out of bounds for the rect
-        const x = @min(i * (dot_width + gap_width), width - 1);
-        const rect_width = @min(width - x, dot_width);
-        canvas.rect(.{
-            .x = @intCast(x),
-            .y = 0,
-            .width = rect_width,
-            .height = thickness,
-        }, .on);
-    }
+    const dot_width = width / 4;
+    var start_x = dot_width / 2;
+    canvas.rect(.{
+        .x = start_x,
+        .y = 0,
+        .width = dot_width,
+        .height = thickness,
+    }, .on);
+
+    start_x += width / 2;
+    canvas.rect(.{
+        .x = start_x,
+        .y = 0,
+        .width = dot_width,
+        .height = thickness,
+    }, .on);
 
     const offset_y: i32 = 0;
 
@@ -139,20 +130,12 @@ fn drawDashed(alloc: Allocator, width: u32, thickness: u32) !CanvasAndOffset {
     const height: u32 = thickness;
     var canvas = try font.sprite.Canvas.init(alloc, width, height);
 
-    const dash_width = width / 3 + 1;
-    const dash_count = (width / dash_width) + 1;
-    var i: u32 = 0;
-    while (i < dash_count) : (i += 2) {
-        // Ensure we never go out of bounds for the rect
-        const x = @min(i * dash_width, width - 1);
-        const rect_width = @min(width - x, dash_width);
-        canvas.rect(.{
-            .x = @intCast(x),
-            .y = 0,
-            .width = rect_width,
-            .height = thickness,
-        }, .on);
-    }
+    canvas.rect(.{
+        .x = width / 6,
+        .y = 0,
+        .width = width - (width / 3),
+        .height = thickness,
+    }, .on);
 
     const offset_y: i32 = 0;
 
